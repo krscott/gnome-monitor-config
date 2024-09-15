@@ -7,7 +7,7 @@
 
   outputs = { self, nixpkgs }:
     let
-      binName = "gnome-monitor-config";
+      pname = "gnome-monitor-config";
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = function:
         nixpkgs.lib.genAttrs supportedSystems (system:
@@ -20,15 +20,19 @@
       packages = forAllSystems ({ pkgs, ... }:
         {
           default = pkgs.clangStdenv.mkDerivation {
-            name = binName;
+            inherit pname;
+            version = "1.0.0";
             src = ./.;
 
-            buildInputs = with pkgs; [
-              cairo
+            nativeBuildInputs = with pkgs; [
               cmake
               meson
               ninja
               pkg-config
+            ];
+
+            buildInputs = with pkgs; [
+              cairo
             ];
 
             configurePhase = ''
@@ -44,7 +48,7 @@
 
             installPhase = ''
               mkdir -p $out/bin
-              cp build/src/${binName} $out/bin
+              cp build/src/${pname} $out/bin
             '';
           };
         }
@@ -53,7 +57,7 @@
       apps = forAllSystems ({ system, ... }: {
         default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/${binName}";
+          program = "${self.packages.${system}.default}/bin/${pname}";
         };
       });
 
@@ -62,25 +66,28 @@
           llvm = pkgs.llvmPackages_latest;
         in {
           default = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; } {
-            packages = with pkgs; self.packages.${system}.default.buildInputs ++ [
-              # debugger
-              llvm.lldb
-              gdb
+            packages =
+              self.packages.${system}.default.nativeBuildInputs ++
+              self.packages.${system}.default.buildInputs ++
+              (with pkgs; [
+                # debugger
+                llvm.lldb
+                gdb
 
-              # fix headers not found
-              clang-tools
+                # fix headers not found
+                clang-tools
 
-              # LSP and compiler
-              # llvm.libstdcxxClang
+                # LSP and compiler
+                # llvm.libstdcxxClang
 
-              # other tools
-              # cppcheck
-              llvm.libllvm
-              valgrind
+                # other tools
+                # cppcheck
+                llvm.libllvm
+                valgrind
 
-              # stdlib for cpp
-              # llvm.libcxx
-            ];
+                # stdlib for cpp
+                # llvm.libcxx
+              ]);
           };
         });
     };
